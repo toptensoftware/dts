@@ -1,0 +1,33 @@
+{
+  "name": "@toptensoftware/dts",
+  "version": "0.0.29",
+  "description": "Tools for manipulating .d.ts files",
+  "copyright": "Copyright © 2024-present Topten Software",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {},
+  "bin": {
+    "dts": "./index.js"
+  },
+  "author": "Topten Software",
+  "contributors": [
+    {
+      "name": "Brad Robinson",
+      "email": "contact@toptensoftware.com"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toptensoftware/dts.git"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@jridgewell/source-map": "^0.3.6",
+    "@toptensoftware/clargs": "github:toptensoftware/clargs",
+    "@toptensoftware/jsdoc": "github:toptensoftware/jsdoc",
+    "@toptensoftware/line-map": "github:toptensoftware/line-map",
+    "@toptensoftware/mapped-source": "github:toptensoftware/mapped-source",
+    "@toptensoftware/unindent": "github:toptensoftware/unindent",
+    "typescript": "^5.7.2"
+  }
+}
