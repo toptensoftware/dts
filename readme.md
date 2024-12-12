@@ -196,11 +196,11 @@ Once you have the final `.d.ts` file you can feed it into
 documentation generators like `typedoc`, `tsdoc` etc...
 
 Alternatively, if you want to generate documentation yourself
-`dts` can produce a very simple JSON file with just
-enough information to produce documentation.
+`dts` can produce a simple JSON file with just enough information 
+to produce documentation.
 
 ```
-node index extract ../core/index.d.ts > index.d.json
+npx toptensoftware/dts extract ../core/index.d.ts --out:index.d.json
 ```
 
 YMMV: the code that produces the JSON is only aware of certain
@@ -211,7 +211,7 @@ At least the following aren't supported:
 
 * Deconstructed function arguments
 * Type parameters
-* Probably lots more...
+* Probably more...
 
 That said, if your producing fairly standard .js code, it's 
 possible the above will work just fine.
