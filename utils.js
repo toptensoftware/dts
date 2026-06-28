@@ -4,6 +4,7 @@ export function isDeclarationNode(node)
 {
     switch (node.kind)
     {
+        case ts.SyntaxKind.Constructor:
         case ts.SyntaxKind.PropertyDeclaration:
         case ts.SyntaxKind.MethodDeclaration:
         case ts.SyntaxKind.VariableDeclaration:
