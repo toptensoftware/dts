@@ -29,7 +29,7 @@ Also removes an self referencing imports, redundant exports,
 unneeded @typedef and @callback comment blocks, @internal and
 private declarations.
 
-If input file has a source map, new updated map is generated.
+If input files have a source map, new updated map is generated.
 `);
 }
 
