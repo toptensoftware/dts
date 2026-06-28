@@ -13,6 +13,7 @@
             ],
             "program": "${workspaceFolder}\\index.js",
             "cwd": "${workspaceFolder}/../shownotes-dev/cantabile-js",
+            /*
             "args": [ 
                 "flatten", 
                 "@toptensoftware/cantabile-js",
@@ -20,13 +21,12 @@
                 "./types/*.d.ts", 
                 "--out:types.d.ts",
             ]
-            /*
+            */
             "args": [
                 "extract",
                 "types.d.ts",
                 "--out:types.d.json",
             ]
-            */
             /*
             "args": [
                 "list-map", "types.d.ts.map",

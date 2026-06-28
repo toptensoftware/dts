@@ -125,6 +125,8 @@ export function cmdExtract(tail)
                 return processVariableStatement(node);
             case ts.SyntaxKind.VariableDeclaration:
                 return processVariableDeclaration(node);
+            case ts.SyntaxKind.ImportDeclaration:
+                return null;
         }
 
         throw new Error(`Don't know how to process node kind: ${node.kind}`);
@@ -164,7 +166,7 @@ export function cmdExtract(tail)
     {
         let x = { 
             kind: "source-file",
-            members: node.statements.map(x => process(x)),
+            members: node.statements.map(x => process(x)).filter(x => x),
         }
         return x;
     }
@@ -179,7 +181,7 @@ export function cmdExtract(tail)
             kind: (node.flags & ts.NodeFlags.Namespace) ? "namespace" : "module",
             name,
             namepath,
-            members: postProcessMembers(node.body.statements.map(x => process(x))),
+            members: postProcessMembers(node.body.statements.map(x => process(x)).filter(x => x)),
         }
         namepath = saveNamePath;
         currentModule = previousModule;
@@ -200,7 +202,7 @@ export function cmdExtract(tail)
         }, processCommon(node));
 
         pushNamePath(x.name, () => {
-            x.members = postProcessMembers(node.members.map(x => process(x)));
+            x.members = postProcessMembers(node.members.map(x => process(x)).filter(x => x));
         });
 
         // Combine get/set accessors
@@ -294,7 +296,7 @@ export function cmdExtract(tail)
         if (node.type.members)
         {
             pushNamePath(x.name, () => {
-                x.members = node.type.members.map(x => process(x));
+                x.members = node.type.members.map(x => process(x)).filter(x => x);
             });
         }
 
@@ -342,7 +344,7 @@ export function cmdExtract(tail)
         // flattened by postProcessMembers later
         let x = Object.assign({
             kind: "variables",
-            declarations: node.declarationList.declarations.map(x => process(x)),
+            declarations: node.declarationList.declarations.map(x => process(x)).filter(x => x),
         }, processCommon(node, false));
         return x;
         */
