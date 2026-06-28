@@ -12,7 +12,7 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}\\index.js",
-            "cwd": "${workspaceFolder}/../core",
+            "cwd": "${workspaceFolder}/../shownotes-dev/cantabile-js",
             /*
             "args": [ 
                 "extract", 
@@ -22,12 +22,10 @@
             */
             "args": [ 
                 "flatten", 
-                "@toptensoftware/core",
-                "index.raw.d.ts", 
-                "types.d.ts", 
-                "--module:types",
-                "--module:index-server",
-                "--out:dump.d.ts",
+                "@toptensoftware/cantabile-js",
+                "./src/types.d.ts",
+                "./types/*.d.ts", 
+                "--out:types.d.ts",
             ]
         }
     ]

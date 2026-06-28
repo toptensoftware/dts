@@ -5,6 +5,7 @@ import { find_bol_ws, find_next_line_ws } from '@toptensoftware/strangle';
 import { clargs, showArgs } from "@toptensoftware/clargs";
 import { isDeclarationNode, getExportName, stripQuotes, isPrivateOrInternal} from "./utils.js";
 import { remapSymbols } from './remapSymbols.js';
+import { globSync } from 'glob';
 
 
 function showHelp()
@@ -39,6 +40,7 @@ export function cmdFlatten(tail)
     let outFile = null;
     let moduleName = null;
     let rootModules = [];
+    let ignoreModules = [];
 
     let args = clargs(tail);
     while (args.next())
@@ -53,6 +55,10 @@ export function cmdFlatten(tail)
                 rootModules.push(args.readValue());
                 break;
 
+            case "ignore-module":
+                ignoreModules.push(args.readValue());
+                break;
+
             case "out":
                 outFile = args.readValue();
                 break;
@@ -61,7 +67,10 @@ export function cmdFlatten(tail)
                 if (moduleName == null)
                     moduleName = args.readValue();
                 else
-                    inFiles.push(args.readValue());
+                {
+                    let files = globSync(args.readValue());
+                    inFiles.push(...files);
+                }
                 break;
 
             default:
@@ -82,13 +91,6 @@ export function cmdFlatten(tail)
         process.exit(7);
     }
 
-    // Must have some modules to flatten
-    if (rootModules.length == 0)
-    {
-        console.error("missing argument: no module names specified");
-        process.exit(7);
-    }
- 
     // Process input files
     let moduleList = [];
     for (let inFile of inFiles)
@@ -111,6 +113,23 @@ export function cmdFlatten(tail)
         moduleList.push(processModuleStatements(inFile, ms, ast.statements, true));
     }
 
+    // Must have some modules to flatten
+    if (rootModules.length == 0)
+    {
+        rootModules = moduleList.map(x => x.name);
+        if (rootModules.length == 0)
+        {
+            console.error("missing argument: no module names specified");
+            process.exit(7);
+        }
+    }
+
+    // Remove ignored modules
+    if (ignoreModules.length != 0)
+    {
+        rootModules.filter(x => ignoreModules.indexOf(x) < 0);
+    }
+ 
     // Build the full module map
     let moduleMap = new Map();
     moduleList.forEach(x => buildModuleMap(x));
@@ -172,11 +191,14 @@ export function cmdFlatten(tail)
             else if (ts.isExportDeclaration(node))
             {
                 // Get the module name
-                let moduleSpecifier = stripQuotes(node.moduleSpecifier.getText());
+                let moduleSpecifier = modulename;
+                if (node.moduleSpecifier)
+                    moduleSpecifier = node.moduleSpecifier.getText();
+                
+                moduleSpecifier = stripQuotes(moduleSpecifier);
 
                 if (node.exportClause)
                 {
-                    symbols = [];
                     for (let e of node.exportClause.elements)
                     {
                         if (e.propertyName)
@@ -208,6 +230,9 @@ export function cmdFlatten(tail)
 
                 // Process module statements
                 modules.push(processModuleStatements(name, ms, node.body.statements, false));
+            }
+            else if (ts.isImportDeclaration(node))
+            {
             }
         }
 

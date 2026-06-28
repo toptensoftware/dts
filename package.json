@@ -1,6 +1,6 @@
 {
   "name": "@toptensoftware/dts",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "description": "Tools for manipulating .d.ts files",
   "copyright": "Copyright © 2024-present Topten Software",
   "main": "index.js",
@@ -28,6 +28,10 @@
     "@toptensoftware/line-map": "github:toptensoftware/line-map",
     "@toptensoftware/mapped-source": "github:toptensoftware/mapped-source",
     "@toptensoftware/unindent": "github:toptensoftware/unindent",
+    "glob": "^13.0.6",
     "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1"
   }
 }
