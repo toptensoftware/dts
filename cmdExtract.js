@@ -462,8 +462,20 @@ export function cmdExtract(tail)
             node.kind != ts.SyntaxKind.VariableDeclaration
             )
         {
-            let name = node.name?.getText(ast) ?? "<unnamed element>";
-            console.error(`warning: ${format_position(node)}: no documentation for ${name}`);
+            if (node.kind == ts.SyntaxKind.Constructor)
+            {
+                let className = "<unknown>";
+                if (node.parent.kind == ts.SyntaxKind.ClassDeclaration)
+                {
+                    className = node.parent.name?.getText();
+                }
+                console.error(`warning: ${format_position(node)}: no documentation for '${className}' constructor`);
+            }
+            else
+            {
+                let name = node.name?.getText(ast) ?? "<unnamed element>";
+                console.error(`warning: ${format_position(node)}: no documentation for ${name}`);
+            }
         }
 
         return common;
