@@ -3,7 +3,7 @@ import ts from 'typescript';
 import { MappedSource, EditableMappedSource } from "@toptensoftware/mapped-source";
 import { find_bol_ws, find_next_line_ws } from '@toptensoftware/strangle';
 import { clargs, showArgs } from "@toptensoftware/clargs";
-import { isDeclarationNode, getExportName, stripQuotes, isPrivateOrInternal} from "./utils.js";
+import { isDeclarationNode, getExportName, stripQuotes, isPrivateOrInternal, extractImportInfo, mergeImportInfo, renderImportInfo } from "./utils.js";
 import { remapSymbols } from './remapSymbols.js';
 import { globSync } from 'glob';
 
@@ -139,12 +139,38 @@ export function cmdFlatten(tail)
 
     // Build the final set of exports
     let finalExportList = new Set();
+    let finalImportList = new Map();
     for (let rm of rootModules)
     {
         let mod = getModule(rm);
         if (!mod)
             throw new Error(`Root module '${rm}' not found.`);
+
+        // Build merged list of exports
         mod.resolvedExports.forEach(x => finalExportList.add(x))
+
+        // Build merged list of imports
+        mod.imports.forEach(x => {
+        
+            // Ignore local imports
+            if (x.moduleSpecifier.startsWith("."))
+                return;
+
+            // Get existing import for this module
+            let mi = finalImportList.get(x.moduleSpecifier);
+            if (!mi)
+            {
+                mi = { 
+                    moduleSpecifier: x.moduleSpecifier, 
+                    defaultImport: null, 
+                    namedImports: [] 
+                };
+                finalImportList.set(x.moduleSpecifer, mi);
+            }
+
+            // Merge imports
+            mergeImportInfo(mi, x);
+        });
     }
 
     // Write new file
@@ -152,12 +178,17 @@ export function cmdFlatten(tail)
     msOut.append(`declare module "${moduleName}" {\n`);
     Array.from(finalExportList).forEach(x => writeExport(msOut, x));
     msOut.append(`\n}\n`);
+    for (let i of finalImportList.values())
+    {
+        msOut.append(renderImportInfo(i) + "\n");
+    }
     msOut.save(outFile ?? inFiles[0]);
 
     // Process the statements of either a top level source file, or 
     // a module declaration block.
     function processModuleStatements(modulename, ms, statements, isSourceFile)
     {
+        let imports = [];
         let exports = [];
         let modules = [];
         for (let node of statements)
@@ -233,11 +264,14 @@ export function cmdFlatten(tail)
             }
             else if (ts.isImportDeclaration(node))
             {
+                var info = extractImportInfo(node);
+                imports.push(info);
             }
         }
 
         return { 
             name: modulename, 
+            imports,
             exports, 
             modules 
         }

@@ -1,6 +1,6 @@
 {
   "name": "@toptensoftware/dts",
-  "version": "0.0.31",
+  "version": "0.0.32",
   "description": "Tools for manipulating .d.ts files",
   "copyright": "Copyright © 2024-present Topten Software",
   "main": "index.js",
