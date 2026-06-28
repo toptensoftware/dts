@@ -52,93 +52,105 @@ export function remapSymbols(source, ast)
 
     function walk(node)
     {
-        if (isDeclarationNode(node) && node.name && node.kind != ts.SyntaxKind.ModuleDeclaration)
+        if (isDeclarationNode(node) && node.kind != ts.SyntaxKind.ModuleDeclaration)
         {
-            // Get the name and its position
-            let name = node.name.getText();
-            let nameOffset = node.name.getStart();
+            let name;
+            let nameOffset;
 
-            // Ignore private fields
-            if (name.startsWith("#"))
-                return;
-
-            // Find the original position
-            let namepos = source.lineMap.fromOffset(nameOffset);
-
-            let mapped = false;
-            if (source.sourceMap)
+            if (node.kind == ts.SyntaxKind.Constructor)
             {
-                let originalPos = source.sourceMap.originalPositionFor(namepos);
-                if (originalPos.source)
-                {
-                    let originalSource = originalPos.source;
-
-                    // Load the original file
-                    let originalSourceFile = loadOriginalFile(path.join(relbase, originalPos.source));
-
-                    // Look for the symbol
-
-                    // Searching from the start of the line instead of the original position column
-                    // helps this works for cases like where name is before the declaration eg:  "{ name: function () }"
-                    // In these cases the originalPos.column is after "name"
-                    let originalOffsetStart = originalSourceFile.lineMap.toOffset(originalPos.line, 0);//originalPos.column);
-
-                    let rx = new RegExp(regExpForName(name), 'g');
-                    rx.lastIndex = originalOffsetStart;
-                    let m = rx.exec(originalSourceFile.code);
-                    if (m)
-                    {
-                        originalOffsetStart = m.index;
-                        originalPos = originalSourceFile.lineMap.fromOffset(originalOffsetStart);
-                        
-                        // Start of name
-                        map.push({
-                            offset: nameOffset,
-                            name: name,
-                            source: originalSource,
-                            originalLine: originalPos.line,
-                            originalColumn: originalPos.column,
-                        });
-
-                        // End of name
-                        map.push({
-                            offset: nameOffset + name.length,
-                            name: name,
-                            source: originalSource,
-                            originalLine: originalPos.line,
-                            originalColumn: originalPos.column + name.length,
-                        });
-
-                        mapped = true;
-                    }
-                }
+                name = "constructor";
+                nameOffset = source.code.indexOf("constructor", node.pos);
+            }
+            else if (node.name)
+            {
+                name = node.name.getText();
+                nameOffset = node.name.getStart();
             }
 
-            // Create mapping to self
-            if (!mapped)
+            if (name)
             {
-                // Start of name
-                map.push({
-                    offset: nameOffset,
-                    name: name,
-                    source: source.filename,
-                    originalLine: namepos.line,
-                    originalColumn: namepos.column,
-                });
+                // Ignore private fields
+                if (name.startsWith("#"))
+                    return;
 
-                // End of name
-                map.push({
-                    offset: nameOffset + name.length,
-                    name: name,
-                    source: source.filename,
-                    originalLine: namepos.line,
-                    originalColumn: namepos.column + name.length,
-                });
+                // Find the original position
+                let namepos = source.lineMap.fromOffset(nameOffset);
+
+                let mapped = false;
+                if (source.sourceMap)
+                {
+                    let originalPos = source.sourceMap.originalPositionFor(namepos);
+                    if (originalPos.source)
+                    {
+                        let originalSource = originalPos.source;
+
+                        // Load the original file
+                        let originalSourceFile = loadOriginalFile(path.join(relbase, originalPos.source));
+
+                        // Look for the symbol
+
+                        // Searching from the start of the line instead of the original position column
+                        // helps this works for cases like where name is before the declaration eg:  "{ name: function () }"
+                        // In these cases the originalPos.column is after "name"
+                        let originalOffsetStart = originalSourceFile.lineMap.toOffset(originalPos.line, 0);//originalPos.column);
+
+                        let rx = new RegExp(regExpForName(name), 'g');
+                        rx.lastIndex = originalOffsetStart;
+                        let m = rx.exec(originalSourceFile.code);
+                        if (m)
+                        {
+                            originalOffsetStart = m.index;
+                            originalPos = originalSourceFile.lineMap.fromOffset(originalOffsetStart);
+                            
+                            // Start of name
+                            map.push({
+                                offset: nameOffset,
+                                name: name,
+                                source: originalSource,
+                                originalLine: originalPos.line,
+                                originalColumn: originalPos.column,
+                            });
+
+                            // End of name
+                            map.push({
+                                offset: nameOffset + name.length,
+                                name: name,
+                                source: originalSource,
+                                originalLine: originalPos.line,
+                                originalColumn: originalPos.column + name.length,
+                            });
+
+                            mapped = true;
+                        }
+                    }
+                }
+
+                // Create mapping to self
+                if (!mapped)
+                {
+                    // Start of name
+                    map.push({
+                        offset: nameOffset,
+                        name: name,
+                        source: source.filename,
+                        originalLine: namepos.line,
+                        originalColumn: namepos.column,
+                    });
+
+                    // End of name
+                    map.push({
+                        offset: nameOffset + name.length,
+                        name: name,
+                        source: source.filename,
+                        originalLine: namepos.line,
+                        originalColumn: namepos.column + name.length,
+                    });
+                }
             }
         }
 
         // Recurse
         ts.forEachChild(node, walk);
     }
-
 }
