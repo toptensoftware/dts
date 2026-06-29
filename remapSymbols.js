@@ -83,7 +83,7 @@ export function remapSymbols(source, ast)
                     let originalPos = source.sourceMap.originalPositionFor(namepos);
                     if (originalPos.source)
                     {
-                        let originalSource = originalPos.source;
+                        let originalSource = path.resolve(relbase, originalPos.source);
 
                         // Load the original file
                         let originalSourceFile = loadOriginalFile(path.join(relbase, originalPos.source));
