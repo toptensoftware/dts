@@ -177,11 +177,11 @@ export function cmdFlatten(tail)
     let msOut = new EditableMappedSource();
     msOut.append(`declare module "${moduleName}" {\n`);
     Array.from(finalExportList).forEach(x => writeExport(msOut, x));
-    msOut.append(`\n}\n`);
     for (let i of finalImportList.values())
     {
         msOut.append(renderImportInfo(i) + "\n");
     }
+    msOut.append(`\n}\n`);
     msOut.save(outFile ?? inFiles[0]);
 
     // Process the statements of either a top level source file, or 
