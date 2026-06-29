@@ -131,3 +131,19 @@ export function renderImportInfo(info)
   importStr += ` from "${info.moduleSpecifier}";`;
   return importStr;
 }
+
+export function findMatchingAccessor(accessor) 
+{
+  const isGetter = ts.isGetAccessorDeclaration(accessor);
+  const accessorName = accessor.name.text;
+  const parent = accessor.parent;
+  const members = parent.members || parent.properties;
+  
+  return members.find(member => {
+    const isMatchingKind = isGetter 
+      ? ts.isSetAccessorDeclaration(member)
+      : ts.isGetAccessorDeclaration(member);
+    
+    return isMatchingKind && member.name.text === accessorName;
+  });
+}

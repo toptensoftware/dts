@@ -5,7 +5,7 @@ import { MappedSource } from "@toptensoftware/mapped-source";
 import { clargs, showArgs } from "@toptensoftware/clargs";
 import { stripComments, parseBlock, replaceInline, formatNamePath } from '@toptensoftware/jsdoc';
 import { unindent } from "@toptensoftware/unindent";
-import { stripQuotes, stripBlankLines } from "./utils.js";
+import { stripQuotes, stripBlankLines, findMatchingAccessor } from "./utils.js";
 
 
 function showHelp()
@@ -476,12 +476,25 @@ export function cmdExtract(tail)
             else
             {
                 let name = node.name?.getText(ast) ?? "<unnamed element>";
-                console.error(`warning: ${format_position(node)}: no documentation for ${name}`);
+
+                if (node.kind == ts.SyntaxKind.SetAccessor)
+                {
+                    // If a set accessor has a matching get accessor then assume the docs are there
+                    // and don't log error for the setter not having docs.
+                    if (findMatchingAccessor(node) != null)
+                        name = null;    // Silent
+                    else
+                        name += " [set accessor]";
+                }
+                else if (node.kind == ts.SyntaxKind.GetAccessor)
+                    name += " [get accessor]";
+
+                if (name)
+                    console.error(`warning: ${format_position(node)}: no documentation for ${name}`);
             }
         }
 
         return common;
-
     }
 
     function format_position(node)
