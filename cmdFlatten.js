@@ -234,7 +234,7 @@ export function cmdFlatten(tail)
                     {
                         if (e.propertyName)
                         {
-                            console.error(`Renaming exports not supported, ignoring "${e.getText()}" in ${module.name.getText()}`);
+                            console.error(`Renaming exports not supported, ignoring "${e.getText()}" in ${modulename}`);
                         }
                         exports.push({
                             name: e.name.getText(),
