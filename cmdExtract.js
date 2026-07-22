@@ -3,9 +3,9 @@ import ts from 'typescript';
 import { find_bol_ws, find_next_line_ws } from '@toptensoftware/strangle';
 import { MappedSource } from "@toptensoftware/mapped-source";
 import { clargs, showArgs } from "@toptensoftware/clargs";
-import { stripComments, parseBlock, replaceInline, formatNamePath } from '@toptensoftware/jsdoc';
+import { stripComments, parseBlock, replaceInline, formatNamePath, parseNamePath } from '@toptensoftware/jsdoc';
 import { unindent } from "@toptensoftware/unindent";
-import { stripQuotes, stripBlankLines, findMatchingAccessor } from "./utils.js";
+import { stripQuotes, stripBlankLines, findMatchingAccessor, isJsDocComment } from "./utils.js";
 
 
 function showHelp()
@@ -164,9 +164,9 @@ export function cmdExtract(tail)
 
     function processSourceFile(node)
     {
-        let x = { 
+        let x = {
             kind: "source-file",
-            members: node.statements.map(x => process(x)).filter(x => x),
+            members: processStatementList(node.statements),
         }
         return x;
     }
@@ -177,15 +177,161 @@ export function cmdExtract(tail)
         let previousModule = currentModule;
         currentModule = currentModule == "" ? name : currentModule + "/" + name;
         namepath = `module:${name}`;
-        let x = { 
+        let x = {
             kind: (node.flags & ts.NodeFlags.Namespace) ? "namespace" : "module",
             name,
             namepath,
-            members: postProcessMembers(node.body.statements.map(x => process(x)).filter(x => x)),
+            members: postProcessMembers(processStatementList(node.body.statements)),
         }
         namepath = saveNamePath;
         currentModule = previousModule;
         return x;
+    }
+
+    // Processes a list of statements/members, additionally picking up
+    // any "floating" JSDoc block comments (ie: leading comments other than
+    // the one immediately attached to the following node) that document an
+    // @event and aren't otherwise attached to any AST element.
+    //
+    // If the following node is a class/interface whose own doc comment
+    // @fires the same event, the synthetic "event" entry is nested inside
+    // that node's members instead of being emitted as a sibling - so
+    // `@fires Cantabile#stateChanged` on the class pulls in the matching
+    // floating `@event Cantabile#stateChanged` block as a class member.
+    function processStatementList(nodes)
+    {
+        let result = [];
+        for (let node of nodes)
+        {
+            let floatingEvents = processFloatingEventComments(node);
+
+            let x = process(node);
+
+            if (floatingEvents.length && x && x.members)
+            {
+                let fires = (x.jsdoc || [])
+                    .filter(s => s.block == "fires")
+                    .map(s => normalizeEventRef(s.text));
+
+                floatingEvents = floatingEvents.filter(ev => {
+                    if (!fires.includes(ev.namepath))
+                        return true;
+                    x.members.push(ev);
+                    return false;
+                });
+            }
+
+            result.push(...floatingEvents);
+            if (x)
+                result.push(x);
+        }
+        return result;
+    }
+
+    // Qualifies a parsed name path with the current module name, matching
+    // the convention used for every other namepath in the output (eg:
+    // "module:@toptensoftware/cantabile-js.Cantabile#engine"). No-op if
+    // already qualified.
+    function qualifyNamePath(namepath)
+    {
+        if (namepath && namepath.length && namepath[0].prefix != "module:")
+        {
+            namepath.unshift({
+                prefix: "module:",
+                name: currentModule,
+            });
+            namepath[1].delim = ".";
+        }
+        return namepath;
+    }
+
+    // Parses a (possibly unqualified) event name path and formats it back
+    // to a canonical, module-qualified string, so @event and @fires
+    // references can be compared even if they differ in incidental
+    // whitespace/escaping. Falls back to the trimmed raw text if it
+    // doesn't parse as a name path.
+    //
+    // Per the JSDoc namepath convention, the final segment (the event
+    // itself) is marked with an "event:" prefix, eg:
+    // "module:@toptensoftware/cantabile-js.Cantabile#event:stateChanged"
+    function normalizeEventRef(text)
+    {
+        text = text.trim();
+        let namepath = parseNamePath(text);
+        if (!namepath)
+            return text;
+
+        let last = namepath[namepath.length - 1];
+        if (last && !last.prefix)
+            last.prefix = "event:";
+
+        qualifyNamePath(namepath);
+        return formatNamePath(namepath);
+    }
+
+    function processFloatingEventComments(node)
+    {
+        let events = [];
+
+        let comments = ts.getLeadingCommentRanges(source.code, node.pos);
+        if (!comments || comments.length < 2)
+            return events;
+
+        // All but the last comment are "floating" - the last one is the
+        // comment actually attached to `node` and is handled by processCommon()
+        for (let i = 0; i < comments.length - 1; i++)
+        {
+            let comment = comments[i];
+            if (!isJsDocComment(source.code, comment))
+                continue;
+
+            let commentPos = find_bol_ws(source.code, comment.pos);
+            let commentText = source.code.substring(
+                commentPos,
+                find_next_line_ws(source.code, comment.end)
+            );
+
+            let linked = replaceInline(commentText);
+            let jsdoc = parseBlock(linked.body);
+            if (!jsdoc)
+                continue;
+
+            let eventSection = jsdoc.find(x => x.block == "event");
+            if (!eventSection)
+                continue;
+
+            let eventNamePath = parseNamePath(eventSection.text.trim());
+            let name = eventNamePath ? eventNamePath[eventNamePath.length - 1].name : eventSection.text.trim();
+
+            let links = linked.links.map(l => Object.assign({}, l, {
+                pos: l.pos + commentPos,
+                end: l.end + commentPos,
+            }));
+            links.forEach(x => allLinks.push(x));
+
+            // Synthesize a usage example in place of the "definition" a
+            // real AST-backed member would have, using the event's
+            // @property declarations as the listener's parameters, and
+            // a camelCase instance name derived from the owning class.
+            let params = jsdoc
+                .filter(s => s.block == "property")
+                .map(s => `${s.name}: ${s.type ?? "any"}`)
+                .join(", ");
+            let className = node.name ? node.name.getText(ast) : "target";
+            let instanceName = className.charAt(0).toLowerCase() + className.slice(1);
+            let definition = `${instanceName}.on('${name}', (${params}) => { });`;
+
+            events.push({
+                kind: "event",
+                name,
+                namepath: normalizeEventRef(eventSection.text),
+                definition,
+                jsdoc,
+                links,
+            });
+        }
+
+        return events;
     }
 
     function processFunction(node)
@@ -202,7 +348,7 @@ export function cmdExtract(tail)
         }, processCommon(node));
 
         pushNamePath(x.name, () => {
-            x.members = postProcessMembers(node.members.map(x => process(x)).filter(x => x));
+            x.members = postProcessMembers(processStatementList(node.members));
         });
 
         // Combine get/set accessors
@@ -416,14 +562,7 @@ export function cmdExtract(tail)
                 x.end += commentPos;
 
                 // Qualify name paths with the current module name
-                if (x.namepath && x.namepath[0].prefix != "module:")
-                {
-                    x.namepath.unshift({
-                        prefix: "module:",
-                        name: currentModule,
-                    });
-                    x.namepath[1].delim = ".";
-                }
+                qualifyNamePath(x.namepath);
 
                 // Store link for later checking
                 allLinks.push(x);

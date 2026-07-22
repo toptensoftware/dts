@@ -52,6 +52,16 @@ export function stripQuotes(str)
     return str;
 }
 
+// True if a leading comment range (from ts.getLeadingCommentRanges) is a
+// JSDoc style block comment (ie: "/** ... */" as opposed to a plain
+// "/* ... */" block comment, a "//" line comment, or an empty "/**/")
+export function isJsDocComment(code, range)
+{
+    if (range.kind != ts.SyntaxKind.MultiLineCommentTrivia)
+        return false;
+    return /^\/\*\*(?!\*|\/)/.test(code.substring(range.pos, range.pos + 4));
+}
+
 export function isPrivateOrInternal(node)
 {
     if ((ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Private) != 0)

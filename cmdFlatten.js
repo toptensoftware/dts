@@ -3,7 +3,7 @@ import ts from 'typescript';
 import { MappedSource, EditableMappedSource } from "@toptensoftware/mapped-source";
 import { find_bol_ws, find_next_line_ws } from '@toptensoftware/strangle';
 import { clargs, showArgs } from "@toptensoftware/clargs";
-import { isDeclarationNode, getExportName, stripQuotes, isPrivateOrInternal, extractImportInfo, mergeImportInfo, renderImportInfo } from "./utils.js";
+import { isDeclarationNode, getExportName, stripQuotes, isPrivateOrInternal, isJsDocComment, extractImportInfo, mergeImportInfo, renderImportInfo } from "./utils.js";
 import { remapSymbols } from './remapSymbols.js';
 import { globSync } from 'glob';
 
@@ -196,12 +196,22 @@ export function cmdFlatten(tail)
             let name = getExportName(node);
             if (name)
             {
-                // Get the immediately preceding comment
+                // Get the immediately preceding comment, extended backwards
+                // over any earlier comments that are themselves JSDoc-format
+                // block comments (eg: floating @event blocks). Plain code
+                // comments (line comments, non-JSDoc block comments) stop
+                // the extension so they're left out of the flattened output.
                 let startPos = node.getStart();
                 let comments = ts.getLeadingCommentRanges(ms.code, node.pos);
                 if (comments && comments.length > 0)
                 {
-                    startPos = comments[comments.length - 1].pos;
+                    let i = comments.length - 1;
+                    startPos = comments[i].pos;
+                    while (i > 0 && isJsDocComment(ms.code, comments[i - 1]))
+                    {
+                        i--;
+                        startPos = comments[i].pos;
+                    }
                 }
 
                 // Work out the full range of text
